@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+!.env.example
+artifacts/
+
+dist/
+share-site/
+verification.md
+share-source/
+scripts/prepare-share.mjs
+scripts/serve-share.mjs
+scripts/verify-share.mjs

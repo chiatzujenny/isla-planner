@@ -1,0 +1,16 @@
+const cache=new Map();let queue=Promise.resolve(),next=0;
+const tags={hotel:['tourism:hotel','tourism:guest_house','tourism:hostel','tourism:apartment','tourism:motel','tourism:resort'],food:['amenity:restaurant','amenity:cafe'],sight:['tourism:attraction','tourism:museum','tourism:viewpoint'],beach:['natural:beach'],nature:['leisure:park','leisure:nature_reserve']};
+async function request(url,fetchImpl){const task=queue.then(async()=>{const delay=Math.max(0,next-Date.now());if(delay)await new Promise(r=>setTimeout(r,delay));next=Date.now()+1100;const r=await fetchImpl(url,{signal:AbortSignal.timeout(16000),referrerPolicy:'strict-origin-when-cross-origin'});if(!r.ok)throw new Error('SEARCH_UNAVAILABLE');return r.json();});queue=task.catch(()=>{});return task;}
+export function photonPlaces(data,city,type){
+ const kinds={N:'node',W:'way',R:'relation'},unique=new Map();
+ for(const item of data.features||[]){const p=item.properties||{},coords=item.geometry?.coordinates,[lon,lat]=coords||[],kind=kinds[p.osm_type];if(!kind||!Number.isInteger(p.osm_id)||!p.name||typeof lat!=='number'||typeof lon!=='number'||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)continue;
+ const id='osm-'+kind+'-'+p.osm_id;let region=lat>17.8&&lat<18.6&&lon>-67.4&&lon<-65?'main':'other';if(lat>18.26&&lat<18.38&&lon>-65.37&&lon<-65.2)region='c';else if(lat>18.04&&lat<18.18&&lon>-65.6&&lon<-65.25)region='v';
+ unique.set(id,{id,en:p.name,zh:p.name,lat,lon,region,type,duration:type==='hotel'?30:type==='food'?75:120,address:[p.housenumber,p.street,p.city,p.state,p.country].filter(Boolean).join(', '),website:p.extra?.website||'',phone:p.extra?.phone||'',lodgingType:p.osm_value||'',descZh:city+' · OpenStreetMap 公開資料；請確認位置、營業、房價及空房。',descEn:city+' · Public OpenStreetMap data; confirm location, hours, rates and availability.',tags:city+' '+type,source:'https://www.openstreetmap.org/'+kind+'/'+p.osm_id,image:type==='hotel'?'hotel':type==='food'?'food':type==='nature'?'forest':'beach'});
+ }return [...unique.values()];
+}
+export async function searchPublicPlaces(city,type,{fetchImpl=fetch,endpoint='https://photon.komoot.io/api/'}={}){
+ city=String(city).trim();if(!city||city.length>120||!tags[type])throw new Error('INVALID_SEARCH');const key=endpoint+'|'+city.toLowerCase()+'|'+type;const hit=cache.get(key);if(hit&&hit.expires>Date.now())return {places:structuredClone(hit.places),cached:true};
+ const center=new URL(endpoint);center.searchParams.set('q',city);center.searchParams.set('limit','1');center.searchParams.set('lang','en');const geo=await request(center.href,fetchImpl),coords=geo.features?.[0]?.geometry?.coordinates;if(!coords||!coords.every(Number.isFinite))return {places:[]};const [lon,lat]=coords;
+ const url=new URL(endpoint);url.searchParams.set('q',city);url.searchParams.set('limit','16');url.searchParams.set('lang','en');url.searchParams.set('bbox',[Math.max(-180,lon-.15),Math.max(-90,lat-.12),Math.min(180,lon+.15),Math.min(90,lat+.12)].join(','));for(const tag of tags[type])url.searchParams.append('osm_tag',tag);
+ const places=photonPlaces(await request(url.href,fetchImpl),city,type);cache.set(key,{places,expires:Date.now()+3600000});return {places:structuredClone(places)};
+}
