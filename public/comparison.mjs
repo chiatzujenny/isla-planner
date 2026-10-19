@@ -1,6 +1,7 @@
 import {userHotels,screenshotQuotes,knownQuoteTotal,combinationSummary,hotelPriceMarkdown} from './hotel-quotes.mjs';
 import {defaultItems} from './core.mjs';
 import {bookingSearch} from './lodging.mjs';
+import {tripUpdate,latestItems,latestSchedule,migrateGeneratedTrip} from './trip-update.mjs';
 
 export const context={start:'2026-12-20',end:'2026-12-25',adults:2,nights:5,budget:450,checked:'2026-10-18'};
 export const sources={moon:'https://www.timeanddate.com/moon/puerto-rico/san-juan?month=12&year=2026',bio:'https://www.discoverpuertorico.com/article/guide-to-exploring-puerto-ricos-bioluminescent-bays',ferry:'https://www.puertoricoferry.com/en/routes-schedules/ceiba-culebra/'};
@@ -11,6 +12,11 @@ export const copy={
 
 Object.assign(copy.zh,{title:'三個方案，把住宿一起算清楚。',recommend:'我的首選：B ＋ Las Palomas 私人衛浴五晚',splitBio:'若選 A／C，12/20 晚上先去 Fajardo 再回 San Juan 會增加往返；首晚住東岸則需另外比較換宿次數與費用。',shortlist:'你提供的七間住宿與截圖報價',quoteNotice:'七間住宿依提供的截圖整理，尚未核實即時空房與最後必付費；Isla 稅費及前兩晚價格依你同意先保守推估。你們可共睡一張雙人床。Sleep Relax 1 已依你不喜歡老舊外觀的偏好移出推薦。以下金額尚非已核實的最後結帳價。',quality:'資料依據見卡片',checked:'資料整理：2026/10/19',source:'原始飯店連結',checkPrice:'搜尋指定日期',candidateNote:'私人衛浴優先比較 Las Palomas，省錢比較 Oasis；東岸可比 Comfortable。Sleep Relax 1 因外觀偏好移出推薦；Duerme 與 San Juan Apartments 保留備案。兩個同名 Oasis 項目合併，不重複計價。',unknown:'其他日期房價／即時房況待確認'});
 Object.assign(copy.en,{title:'Three options, with accommodation totals.',recommend:'My pick: B + Las Palomas with a private bathroom for five nights',splitBio:'For A / C, the Dec 20 Fajardo tour adds a return trip if based in San Juan. An east-coast first night needs a separate moving-cost comparison.',shortlist:'Your seven properties and screenshot quotes',quoteNotice:'All seven properties use supplied screenshots; live availability and final mandatory fees remain unverified. Isla tax and two-night metro rates are planning estimates, as requested. Sharing a double bed is acceptable. Sleep Relax 1 is excluded by your appearance preference. Totals are not verified final checkout prices.',quality:'Evidence stated on each card',checked:'Compiled: Oct 19, 2026',source:'Original property link',checkPrice:'Search selected dates',candidateNote:'Prioritize Las Palomas for a private bathroom, Oasis for lower cost, and Comfortable for an east-coast stay. Sleep Relax 1 is excluded by appearance preference; Duerme and San Juan Apartments are backups. Duplicate named Oasis entries are grouped, not charged twice.',unknown:'Other dates / live availability unconfirmed'});
+
+Object.assign(copy.zh,tripUpdate.copy.zh);
+Object.assign(copy.en,tripUpdate.copy.en);
+sources.bioTour='https://kayakingpuertorico.com/home/tours/bio-bay-kayak-tour/';
+export const tripRevision=tripUpdate.revision;
 
 export const plans=[
  {
@@ -62,6 +68,7 @@ export const plans=[
   "previousId": "D"
  }
 ];
+for(const p of plans){if(p.id==='C')Object.assign(p,{title:tripUpdate.title,trade:tripUpdate.trade,cost:tripUpdate.cost,latest:true});else p.archived=true;}
 export const candidates=userHotels;
 export function candidateUrl(candidate,{checkin=context.start,checkout=context.end,lang='zh'}={}){
  if(candidate.platform==='Airbnb'){const u=new URL(candidate.source);u.searchParams.set('check_in',checkin);u.searchParams.set('check_out',checkout);u.searchParams.set('adults','2');return u.href;}
@@ -74,6 +81,10 @@ export function compareCosts(values={}){
  const q=parseQuote(values);return ['single','split'].map(mode=>{const stay=mode==='single'?q.single:q.city===null||q.east===null?null:Math.round((q.city+q.east)*100)/100;const transport=q[mode+'Transport'];return {mode,stay,transport,total:stay===null||transport===null?null:Math.round((stay+transport)*100)/100,status:stay===null?'missing':stay<=context.budget?'within':'over'};});
 }
 export function planItems(id){
+ if(id==='C')return latestItems(defaultItems());
+ return previousPlanItems(id);
+}
+export function previousPlanItems(id){
  if(!plans.some(p=>p.id===id))throw new Error('INVALID_PLAN');
  let items=defaultItems().map(x=>({...x}));
  if(id==='A')items=items.map(x=>x.placeId==='laguna'?{...x,date:'2026-12-20'}:x);
@@ -86,6 +97,7 @@ export function planItems(id){
  return items;
 }
 export function schedule(id,lang='zh'){
+ if(id==='C')return latestSchedule(lang);
  const c=copy[lang],island=id==='B'||id==='C',bio=id==='A'||id==='C';
  return [
  ['12/20',c.free,c.arrival,bio?c.bioTrip:c.rest],
@@ -97,5 +109,6 @@ export function schedule(id,lang='zh'){
  ];
 }
 export function comparisonMarkdown(){
- return ['zh','en'].map(lang=>{const c=copy[lang];return '# '+c.title+'\n\n'+c.intro+'\n\n## '+c.recommend+'\n'+c.reason+'\n\n'+plans.map(p=>'### '+p.id+' · '+p.title[lang]+'\n'+p.trade[lang]+'\n'+p.cost[lang]+'\n'+schedule(p.id,lang).map(r=>'- '+r.join(' | ')).join('\n')).join('\n\n')+'\n\n## '+c.strategy+'\n'+c.singleText+'\n\n'+c.splitText+'\n\n'+c.singleCap+'\n'+c.splitCap+'\n\n'+c.moonText+'\n'+sources.moon+'\n\n'+c.islandText+'\n'+c.ferryText+'\n'+sources.ferry+'\n\n## '+c.shortlist+'\n'+c.quoteNotice+'\n\n'+candidates.map(x=>'- '+x.name+' · '+x.area+' · '+(lang==='zh'?x.rating:x.ratingEn)+' ('+c.quality+')\n  '+x.note[lang]+'\n  '+c.unknown+'\n  '+candidateUrl(x,{lang})+'\n  '+c.source+': '+x.source).join('\n\n')+'\n\n'+hotelPriceMarkdown(lang)+'\n\n'+c.checked;}).join('\n\n---\n\n');
+ return ['zh','en'].map(lang=>{const c=copy[lang];return '# '+c.title+'\n\n'+c.intro+'\n\n'+c.currentNotice+'\n\n## '+c.recommend+'\n'+c.reason+'\n\n'+c.plansNote+'\n\n'+plans.map(p=>'### '+p.id+' · '+(p.archived?c.archived+' · ':'')+p.title[lang]+'\n'+p.trade[lang]+'\n'+p.cost[lang]+'\n'+schedule(p.id,lang).map(r=>'- '+r.join(' | ')).join('\n')).join('\n\n')+'\n\n## '+c.strategy+'\n'+c.singleText+'\n\n'+c.splitText+'\n\n'+c.singleCap+'\n'+c.splitCap+'\n\n'+c.moonText+'\n'+sources.moon+'\n'+sources.bioTour+'\n\n'+c.islandText+'\n'+c.ferryText+'\n\n## '+c.shortlist+'\n'+c.quoteNotice+'\n\n'+candidates.map(x=>'- '+x.name+' · '+x.area+' · '+(lang==='zh'?x.rating:x.ratingEn)+' ('+c.quality+')\n  '+x.note[lang]+'\n  '+c.unknown+'\n  '+candidateUrl(x,{lang})+'\n  '+c.source+': '+x.source).join('\n\n')+'\n\n'+hotelPriceMarkdown(lang)+'\n\n'+c.checked;}).join('\n\n---\n\n');
 }
+export function migrateSavedTrip(saved){return migrateGeneratedTrip(saved,previousPlanItems('C'),defaultItems());}

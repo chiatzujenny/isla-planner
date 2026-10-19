@@ -62,3 +62,10 @@ Map coordinates and straight-line links are approximate, not driving routes or f
 - scripts/build-pages.mjs: explicit static asset allowlist
 - server.mjs: optional local backend
 - tests/: pricing, itinerary, hosting, search, fallback and API checks
+
+
+## Latest shared itinerary — Oct 19, 2026
+
+Option C is now the mainland itinerary. The friend arrives at SJU on Dec21 between3–5PM; the original traveler remains provisionally due Dec20. Culebra and Ceiba ferry stops have been removed. Dec22 remains the north coast, Dec23 is El Yunque/Luquillo, and Old San Juan moves to Dec24. Dec21 Laguna Grande is explicitly OPTIONAL / NOT BOOKED, conditional on flight timing, late-tour availability and visibility. The roughly94% moon illumination is not ideal. Operator winter late check-in is listed at8PM with20min early arrival; the actual Dec21 booking is not verified. Keep one San Juan base provisionally Dec20–25; five-night screenshot evidence has not been repriced to four nights. A/B are labeled archived proposals and cannot be applied from the comparison screen.
+
+Untouched browser-saved versions of the old generated C itinerary migrate to the latest C. Custom edits remain intact; Preview & apply provides an explicit update with Undo. Published asset URLs carry a content fingerprint so an updated page loads current modules.
